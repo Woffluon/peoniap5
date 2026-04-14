@@ -93,7 +93,7 @@ function App() {
         hasStarted={hasStarted}
       />
 
-      <audio ref={audioRef} src="/music.mp3" loop />
+      <audio ref={audioRef} src={`${import.meta.env.BASE_URL}music.mp3`} loop />
 
       {/* Start UI Overlay (Shown after loading, before art) */}
       <div className={`enter-overlay ${isReady && !hasStarted ? 'visible' : ''}`}>
