@@ -5,7 +5,7 @@
 
 import { useRef, useCallback, useEffect } from 'react';
 import p5 from 'p5';
-import { ExtendedP5, FlowerElement, GlitchSlice, RenderMode } from '../types';
+import { ExtendedP5, FlowerElement, GlitchSlice, RenderMode, AudioData } from '../types';
 import { easeInOutCubic } from '../utils/p5-math';
 import { drawFlowerToBuffer } from '../rendering/flower-painter';
 import { renderToScreen } from '../rendering/post-processor';
@@ -42,6 +42,9 @@ export const useSketch = (
 
       let elements: FlowerElement[] = [];
       let curEl = 0;
+
+      let audioDataGetter: (() => AudioData | null) | null = null;
+      let smoothedBass = 0, smoothedMid = 0, smoothedTreble = 0;
 
       let phase: 'growing' | 'interactive' | 'wilting' | 'waiting' = 'growing';
       let phaseT = 0;
@@ -121,6 +124,10 @@ export const useSketch = (
         else { isManualMode = true; renderMode = mode; modeT = 1; }
       };
 
+      ep.setAudioDataGetter = (getter) => {
+        audioDataGetter = getter;
+      };
+
       ep.startExperience = () => { loadingPhase = false; };
 
       p.draw = () => {
@@ -130,20 +137,27 @@ export const useSketch = (
         if (loadingPhase && !customImg) {
           p.background(0);
           bloom = p.min(0.5, warmFrames / WARM_TARGET * 0.5);
-          drawFlowerToBuffer(p, buf, f, bloom, 0, 0, 0, 0);
+          drawFlowerToBuffer(p, buf, f, bloom, 0, 0, 0, 0, { bass: 0, mid: 0, treble: 0 });
           warmFrames++;
           onLoadingProgress(p.min(100, p.floor(warmFrames / WARM_TARGET * 100)));
           if (warmFrames >= WARM_TARGET) onReady();
           return;
         }
 
+        // Get and Smooth Audio Data
+        const rawAudio = audioDataGetter ? (audioDataGetter() || { bass: 0, mid: 0, treble: 0 }) : { bass: 0, mid: 0, treble: 0 };
+        smoothedBass = p.lerp(smoothedBass, rawAudio.bass, 0.15);
+        smoothedMid = p.lerp(smoothedMid, rawAudio.mid, 0.15);
+        smoothedTreble = p.lerp(smoothedTreble, rawAudio.treble, 0.15);
+        const audio = { bass: smoothedBass, mid: smoothedMid, treble: smoothedTreble };
+
         p.background(0);
         t += 0.016;
 
         rotEaseIn = p.min(1, rotEaseIn + dt * 0.08);
         const re = easeInOutCubic(rotEaseIn);
-        autoRotY += dt * 0.3 * re;
-        autoRotX += dt * 0.12 * p.sin(t * 0.15) * re;
+        autoRotY += dt * (0.3 + audio.treble * 1.5) * re;
+        autoRotX += dt * (0.12 + audio.treble * 0.8) * p.sin(t * 0.15) * re;
         autoRotZ += dt * 0.08 * p.sin(t * 0.09 + 1.5) * re;
         targetMouseRotX = (p.mouseY - p.height / 2) / p.height * 1.2;
         targetMouseRotY = (p.mouseX - p.width / 2) / p.width * 1.8;
@@ -196,7 +210,7 @@ export const useSketch = (
           buf.image(customImg, (680 - customImg.width * s) / 2, (680 - customImg.height * s) / 2, customImg.width * s, customImg.height * s);
           buf.loadPixels();
         } else {
-          drawFlowerToBuffer(p, buf, f, bloom, wilt, rotX, rotY, rotZ);
+          drawFlowerToBuffer(p, buf, f, bloom, wilt, rotX, rotY, rotZ, audio);
         }
 
         glitchTimer -= dt;
@@ -205,12 +219,14 @@ export const useSketch = (
           if (p.random() < 0.4) triggerGlitch();
         }
 
-        renderToScreen(p, ctx, buf, grid, mInfX, mInfY, renderMode, prevMode, modeT, chars);
+        renderToScreen(p, ctx, buf, grid, mInfX, mInfY, renderMode, prevMode, modeT, chars, audio);
         drawGlitchOverlay();
       };
 
       const triggerGlitch = () => {
-        glitchActive = true; glitchIntensity = p.random(0.4, 1.0); glitchSlices = [];
+        glitchActive = true; 
+        glitchIntensity = p.random(0.4, 1.0) + smoothedMid * 0.5; 
+        glitchSlices = [];
         const scaleF = p.min(p.width / BUF_W, p.height / BUF_H) * 0.85;
         const rW = BUF_W * scaleF, rH = BUF_H * scaleF;
         const fOx = (p.width - rW) / 2 + mInfX, fOy = (p.height - rH) / 2 + mInfY;
@@ -265,5 +281,6 @@ export const useSketch = (
     startExperience: useCallback(() => p5InstanceRef.current?.startExperience(), []),
     updateCustomImage: useCallback((url: string | null) => p5InstanceRef.current?.updateCustomImage(url), []),
     setEffectMode: useCallback((mode: RenderMode) => p5InstanceRef.current?.setEffectMode(mode), []),
+    setAudioDataGetter: useCallback((getter: () => AudioData | null) => p5InstanceRef.current?.setAudioDataGetter(getter), []),
   };
 };

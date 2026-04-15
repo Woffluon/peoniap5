@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { RenderMode } from '../types';
+import { RenderMode, AudioData } from '../types';
 import { useSketch } from '../hooks/useSketch';
 
 interface SketchCanvasProps {
@@ -7,13 +7,15 @@ interface SketchCanvasProps {
   effectMode: RenderMode;
   onReady: (ready: boolean) => void;
   hasStarted: boolean;
+  getAudioData: () => AudioData | null;
 }
 
 const SketchCanvas: React.FC<SketchCanvasProps> = ({ 
   imageSrc, 
   effectMode, 
   onReady, 
-  hasStarted 
+  hasStarted,
+  getAudioData
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
@@ -30,11 +32,15 @@ const SketchCanvas: React.FC<SketchCanvasProps> = ({
     setIsP5Ready(true);
   }, []);
 
-  const { startExperience, updateCustomImage, setEffectMode } = useSketch(
+  const { startExperience, updateCustomImage, setEffectMode, setAudioDataGetter } = useSketch(
     containerRef,
     handleLoadingProgress,
     handleReady
   );
+
+  useEffect(() => {
+    setAudioDataGetter(getAudioData);
+  }, [getAudioData, setAudioDataGetter]);
 
 
   useEffect(() => {

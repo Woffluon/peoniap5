@@ -4,7 +4,7 @@
  */
 
 import p5 from 'p5';
-import { RenderMode } from '../types';
+import { RenderMode, AudioData } from '../types';
 
 const BUF_W = 680, BUF_H = 680;
 
@@ -32,7 +32,8 @@ export const renderToScreen = (
   renderMode: RenderMode,
   prevMode: RenderMode,
   modeT: number,
-  chars: string[]
+  chars: string[],
+  audio: AudioData
 ) => {
 
   const px = (buf as any).pixels;
@@ -51,7 +52,9 @@ export const renderToScreen = (
     ctx.textBaseline = 'middle';
   }
 
-  const gEff = (renderMode === RenderMode.ASCII && transitionDone) ? asciiG : g;
+  // Audio influence on grid (breathing effect)
+  const gShift = audio.mid * 5;
+  const gEff = (renderMode === RenderMode.ASCII && transitionDone) ? asciiG + gShift : g + gShift;
   const halfG = gEff * 0.5;
   const yStart = p.max(0, p.floor(oy / gEff) * gEff);
   const yEnd = p.min(p.height, oy + renderH);

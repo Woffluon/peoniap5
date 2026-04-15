@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, ChangeEvent, lazy, Suspense } from 'react';
 const SketchCanvas = lazy(() => import('./components/SketchCanvas'));
-import { RenderMode } from './types';
+import { RenderMode, AudioData } from './types';
 import Controls from './components/Controls';
 
 function App() {
@@ -8,15 +8,77 @@ function App() {
   const [effectMode, setEffectMode] = useState<RenderMode>(0);
   const [isReady, setIsReady] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [isAudioReactive, setIsAudioReactive] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Web Audio API refs (Strict Mode safe)
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const dataArrayRef = useRef<Uint8Array | null>(null);
+  const isReactiveRef = useRef<boolean>(false);
+
+  // Sync ref for stale closure protection
+  useEffect(() => {
+    isReactiveRef.current = isAudioReactive;
+  }, [isAudioReactive]);
+
+  // Phase 1: Web Audio Setup
+  useEffect(() => {
+    if (!audioRef.current) return;
+    
+    // Initialize context and nodes only once
+    if (!audioContextRef.current) {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContextClass();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.85;
+      
+      const source = ctx.createMediaElementSource(audioRef.current);
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+      
+      audioContextRef.current = ctx;
+      analyserRef.current = analyser;
+      sourceRef.current = source;
+      dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+    }
+  }, []);
+
+  const getAudioData = (): AudioData => {
+    if (!isReactiveRef.current || !analyserRef.current || !dataArrayRef.current) {
+      return { bass: 0, mid: 0, treble: 0 };
+    }
+    
+    analyserRef.current.getByteFrequencyData(dataArrayRef.current as any);
+    const data = dataArrayRef.current;
+    
+    // Bass: 0-10, Mid: 11-100, Treble: 101+
+    let b = 0, m = 0, t = 0;
+    for (let i = 0; i <= 10; i++) b += data[i];
+    for (let i = 11; i <= 100; i++) m += data[i];
+    for (let i = 101; i < data.length; i++) t += data[i];
+    
+    return {
+      bass: (b / 11) / 255,
+      mid: (m / 90) / 255,
+      treble: (t / (data.length - 101)) / 255
+    };
+  };
 
   // Phase 3: Start Experience & Audio
   const startExperience = () => {
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
     if (audioRef.current) {
       audioRef.current.play().catch(e => console.log("Audio play blocked", e));
       setIsMuted(false);
@@ -25,7 +87,10 @@ function App() {
   };
 
   const toggleMute = () => {
-    if (audioRef.current) {
+    if (audioRef.current && audioContextRef.current) {
+      if (audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume();
+      }
       if (isMuted) {
         audioRef.current.play().catch(e => console.log("Audio play blocked", e));
         setIsMuted(false);
@@ -36,14 +101,17 @@ function App() {
     }
   };
 
+  const toggleAudioReactivity = () => {
+    setIsAudioReactive(!isAudioReactive);
+  };
+
   // Clean up old URLs
   useEffect(() => {
     return () => {
-      if (imageSrc) {
-        URL.revokeObjectURL(imageSrc);
-      }
+      if (imageSrc) URL.revokeObjectURL(imageSrc);
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
     };
-  }, [imageSrc]);
+  }, [imageSrc, audioUrl]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -65,8 +133,31 @@ function App() {
     }
   };
 
+  const handleAudioUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('audio/')) {
+        alert("Please upload an audio file.");
+        return;
+      }
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      const url = URL.createObjectURL(file);
+      setAudioUrl(url);
+      setIsMenuOpen(false);
+      setIsMuted(false);
+      // Ensure context is running
+      if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume();
+      }
+    }
+  };
+
   const handleUploadClick = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleAudioUploadClick = () => {
+    audioFileInputRef.current?.click();
   };
 
   const handleAudioError = () => {
@@ -82,13 +173,15 @@ function App() {
           effectMode={effectMode}
           onReady={(ready) => setIsReady(ready)}
           hasStarted={hasStarted}
+          getAudioData={getAudioData}
         />
       </Suspense>
 
       <audio 
         ref={audioRef} 
-        src={`${import.meta.env.BASE_URL}music.mp3`} 
+        src={audioUrl || `${import.meta.env.BASE_URL}music.mp3`} 
         loop 
+        crossOrigin="anonymous"
         onError={handleAudioError}
       />
 
@@ -115,6 +208,9 @@ function App() {
             isMuted={isMuted}
             toggleMute={toggleMute}
             onUploadClick={handleUploadClick}
+            isAudioReactive={isAudioReactive}
+            toggleAudioReactivity={toggleAudioReactivity}
+            onAudioUpload={handleAudioUploadClick}
           />
         </div>
 
@@ -134,6 +230,9 @@ function App() {
             toggleMute={toggleMute}
             onUploadClick={handleUploadClick}
             onCloseMenu={() => setIsMenuOpen(false)}
+            isAudioReactive={isAudioReactive}
+            toggleAudioReactivity={toggleAudioReactivity}
+            onAudioUpload={handleAudioUploadClick}
           />
         </div>
 
@@ -143,6 +242,14 @@ function App() {
           className="hidden-input"
           accept="image/*"
           onChange={handleFileChange}
+        />
+
+        <input
+          type="file"
+          ref={audioFileInputRef}
+          className="hidden-input"
+          accept="audio/*"
+          onChange={handleAudioUpload}
         />
       </div>
     </div>

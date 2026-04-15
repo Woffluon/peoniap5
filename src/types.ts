@@ -20,12 +20,23 @@ export enum RenderMode {
 }
 
 /**
+ * Normalized audio data for visual mapping.
+ * Values range from 0.0 to 1.0.
+ */
+export interface AudioData {
+  bass: number;
+  mid: number;
+  treble: number;
+}
+
+/**
  * Custom methods added externally to the p5.js Sketch instance.
  */
 export interface ExtendedP5 extends p5 {
   updateCustomImage: (url: string | null) => void;
   setEffectMode: (mode: RenderMode) => void;
   startExperience: () => void;
+  setAudioDataGetter: (getter: () => AudioData | null) => void;
 }
 
 /**

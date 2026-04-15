@@ -4,7 +4,7 @@
  */
 
 import p5 from 'p5';
-import { FlowerElement, RenderItem } from '../types';
+import { FlowerElement, RenderItem, AudioData } from '../types';
 import { rot3D, easeInOutCubic, easeOutQuart } from '../utils/p5-math';
 
 const BUF_W = 680, BUF_H = 680;
@@ -106,7 +106,8 @@ export const drawPeony3D = (
   cy: number,
   rotX: number,
   rotY: number,
-  rotZ: number
+  rotZ: number,
+  audioData: AudioData
 ) => {
   const focal = 420;
   const wiltTilt = wl * 0.18;
@@ -170,7 +171,8 @@ export const drawPeony3D = (
       const ps = focal / (focal + rz), sx = rx * ps, sy = ry * ps, viewAngle = p.atan2(ry, rx), depthFactor = focal / (focal + p.abs(rz)), faceVis = p.max(depthFactor, 0.12);
       const pl = baseR * (0.2 + 0.8 * ebl) * (1.15 + innerBoost * 0.3) * shrink * ps;
       let pw = baseR * (0.15 + 0.85 * ebl) * 0.55 * shrink * ps * faceVis;
-      const rPhase = i * 1.7 + layer * 0.9, rAmt = f.ruffleAmt * ebl * (1 + layerFall * 2 + innerBoost * 0.5) * ps;
+      const rPhase = i * 1.7 + layer * 0.9;
+      const rAmt = (f.ruffleAmt + audioData.bass * 25) * ebl * (1 + layerFall * 2 + innerBoost * 0.5) * ps;
       const dM = p.map(layer, 0, f.layers, 0.35, 1.0), bB = 0.4 + 0.6 * ebl;
       
       let r = p.constrain(p.lerp(f.c1[0], f.c2[0], lr) * dM * bB, 0, 255);
@@ -242,7 +244,8 @@ export const drawFlowerToBuffer = (
   wl: number,
   rotX: number,
   rotY: number,
-  rotZ: number
+  rotZ: number,
+  audioData: AudioData
 ) => {
   g.background(0);
   g.noStroke();
@@ -253,6 +256,6 @@ export const drawFlowerToBuffer = (
   const flowerCY = BUF_H * 0.38 + wiltDroop;
   
   drawStem(p, g, f, stemProgress, wl, flowerCX, flowerCY);
-  drawPeony3D(p, g, f, flowerBloom, wl, flowerCX, flowerCY, rotX, rotY, rotZ);
+  drawPeony3D(p, g, f, flowerBloom, wl, flowerCX, flowerCY, rotX, rotY, rotZ, audioData);
   g.loadPixels();
 };
