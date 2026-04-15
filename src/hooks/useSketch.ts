@@ -5,7 +5,7 @@
 
 import { useRef, useCallback, useEffect } from 'react';
 import p5 from 'p5';
-import { ExtendedP5, FlowerElement, GlitchSlice, RenderMode, AudioData } from '../types';
+import { ExtendedP5, FlowerElement, GlitchSlice, RenderMode, AudioData, SketchSettings, DEFAULT_SKETCH_SETTINGS } from '../types';
 import { easeInOutCubic } from '../utils/p5-math';
 import { drawFlowerToBuffer } from '../rendering/flower-painter';
 import { renderToScreen } from '../rendering/post-processor';
@@ -75,6 +75,8 @@ export const useSketch = (
       let glitchActive = false;
       let glitchIntensity = 0;
       let glitchSlices: GlitchSlice[] = [];
+
+      let targetSettings: SketchSettings = { ...DEFAULT_SKETCH_SETTINGS };
 
       let wilt = 0;
 
@@ -186,6 +188,13 @@ export const useSketch = (
         mediaRecorder = null;
       };
 
+      ep.getSettings = () => ({ ...targetSettings });
+
+      ep.updateSketchSettings = (settings: Partial<SketchSettings>) => {
+        Object.assign(targetSettings, settings);
+        isManualMode = true;
+      };
+
       p.draw = () => {
         const dt = p.deltaTime / 1000;
         const f = elements[curEl];
@@ -193,7 +202,7 @@ export const useSketch = (
         if (loadingPhase && !customImg) {
           p.background(0);
           bloom = p.min(0.5, warmFrames / WARM_TARGET * 0.5);
-          drawFlowerToBuffer(p, buf, f, bloom, 0, 0, 0, 0, { bass: 0, mid: 0, treble: 0 });
+          drawFlowerToBuffer(p, buf, f, bloom, 0, 0, 0, 0, { bass: 0, mid: 0, treble: 0 }, targetSettings);
           warmFrames++;
           onLoadingProgress(p.min(100, p.floor(warmFrames / WARM_TARGET * 100)));
           if (warmFrames >= WARM_TARGET) onReady();
@@ -212,9 +221,10 @@ export const useSketch = (
 
         rotEaseIn = p.min(1, rotEaseIn + dt * 0.08);
         const re = easeInOutCubic(rotEaseIn);
-        autoRotY += dt * (0.3 + audio.treble * 1.5) * re;
-        autoRotX += dt * (0.12 + audio.treble * 0.8) * p.sin(t * 0.15) * re;
-        autoRotZ += dt * 0.08 * p.sin(t * 0.09 + 1.5) * re;
+        const rs = targetSettings.rotationSpeed;
+        autoRotY += dt * (0.3 + audio.treble * 1.5) * re * rs;
+        autoRotX += dt * (0.12 + audio.treble * 0.8) * p.sin(t * 0.15) * re * rs;
+        autoRotZ += dt * 0.08 * p.sin(t * 0.09 + 1.5) * re * rs;
         targetMouseRotX = (p.mouseY - p.height / 2) / p.height * 1.2;
         targetMouseRotY = (p.mouseX - p.width / 2) / p.width * 1.8;
         mouseRotX += (targetMouseRotX - mouseRotX) * 0.04;
@@ -224,16 +234,17 @@ export const useSketch = (
         rotZ = autoRotZ;
 
         if (phase === 'growing') {
+          bloomTarget = targetSettings.bloomAmount;
           bloom += (bloomTarget - bloom) * 0.006; phaseT += dt;
-          if (bloom > 0.98) { bloom = 1; phase = 'interactive'; phaseT = 0; }
+          if (bloom > bloomTarget - 0.02) { bloom = bloomTarget; phase = 'interactive'; phaseT = 0; }
         }
 
         densTimer += dt;
         if (densTimer > 0.8) {
           densTimer = 0; triggerGlitch();
           if (!isManualMode) { prevMode = renderMode; renderMode = ((renderMode + 1) % 3) as RenderMode; modeT = 0; }
-          if (densDir === 1) { gridTarget = GRID_MAX; densDir = -1; }
-          else { gridTarget = GRID_MIN; densDir = 1; }
+          if (isManualMode) { gridTarget = targetSettings.gridDensity; }
+          else { if (densDir === 1) { gridTarget = GRID_MAX; densDir = -1; } else { gridTarget = GRID_MIN; densDir = 1; } }
         }
 
         if (phase === 'interactive') {
@@ -266,7 +277,7 @@ export const useSketch = (
           buf.image(customImg, (680 - customImg.width * s) / 2, (680 - customImg.height * s) / 2, customImg.width * s, customImg.height * s);
           buf.loadPixels();
         } else {
-          drawFlowerToBuffer(p, buf, f, bloom, wilt, rotX, rotY, rotZ, audio);
+          drawFlowerToBuffer(p, buf, f, bloom, wilt, rotX, rotY, rotZ, audio, targetSettings);
         }
 
         glitchTimer -= dt;
@@ -275,13 +286,13 @@ export const useSketch = (
           if (p.random() < 0.4) triggerGlitch();
         }
 
-        renderToScreen(p, ctx, buf, grid, mInfX, mInfY, renderMode, prevMode, modeT, chars, audio);
+        renderToScreen(p, ctx, buf, grid, mInfX, mInfY, renderMode, prevMode, modeT, chars, audio, targetSettings);
         drawGlitchOverlay();
       };
 
       const triggerGlitch = () => {
         glitchActive = true; 
-        glitchIntensity = p.random(0.4, 1.0) + smoothedMid * 0.5; 
+        glitchIntensity = p.random(0.4, 1.0) * (0.3 + targetSettings.glitchIntensity * 0.7) + smoothedMid * 0.5; 
         glitchSlices = [];
         const scaleF = p.min(p.width / BUF_W, p.height / BUF_H) * 0.85;
         const rW = BUF_W * scaleF, rH = BUF_H * scaleF;
@@ -345,5 +356,7 @@ export const useSketch = (
     exportCanvas: useCallback(() => p5InstanceRef.current?.exportCanvas(), []),
     startRecording: useCallback(() => p5InstanceRef.current?.startRecording(), []),
     stopRecording: useCallback(() => p5InstanceRef.current?.stopRecording(), []),
+    getSettings: useCallback(() => p5InstanceRef.current?.getSettings() ?? { ...DEFAULT_SKETCH_SETTINGS }, []),
+    updateSketchSettings: useCallback((settings: Partial<SketchSettings>) => p5InstanceRef.current?.updateSketchSettings(settings), []),
   };
 };

@@ -10,6 +10,23 @@ export type FlowerType = 'peony' | 'rose' | 'dahlia';
 
 
 /**
+ * Settings exposed through the imperative bridge for the Advanced Control Panel.
+ */
+export interface SketchSettings {
+  glitchIntensity: number;
+  rotationSpeed: number;
+  gridDensity: number;
+  bloomAmount: number;
+}
+
+export const DEFAULT_SKETCH_SETTINGS: Readonly<SketchSettings> = {
+  glitchIntensity: 0.0,
+  rotationSpeed: 1.0,
+  gridDensity: 4,
+  bloomAmount: 1.0,
+};
+
+/**
  * Enum indicating the rendering modes.
  */
 export enum RenderMode {
@@ -40,6 +57,8 @@ export interface ExtendedP5 extends p5 {
   exportCanvas: () => void;
   startRecording: () => void;
   stopRecording: () => void;
+  getSettings: () => SketchSettings;
+  updateSketchSettings: (settings: Partial<SketchSettings>) => void;
 }
 
 /**

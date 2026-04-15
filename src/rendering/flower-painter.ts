@@ -4,7 +4,7 @@
  */
 
 import p5 from 'p5';
-import { FlowerElement, RenderItem, AudioData } from '../types';
+import { FlowerElement, RenderItem, AudioData, SketchSettings } from '../types';
 import { rot3D, easeInOutCubic, easeOutQuart } from '../utils/p5-math';
 
 const BUF_W = 680, BUF_H = 680;
@@ -107,7 +107,8 @@ export const drawPeony3D = (
   rotX: number,
   rotY: number,
   rotZ: number,
-  audioData: AudioData
+  audioData: AudioData,
+  settings: SketchSettings
 ) => {
   const focal = 420;
   const wiltTilt = wl * 0.18;
@@ -172,7 +173,8 @@ export const drawPeony3D = (
       const pl = baseR * (0.2 + 0.8 * ebl) * (1.15 + innerBoost * 0.3) * shrink * ps;
       let pw = baseR * (0.15 + 0.85 * ebl) * 0.55 * shrink * ps * faceVis;
       const rPhase = i * 1.7 + layer * 0.9;
-      const rAmt = (f.ruffleAmt + audioData.bass * 25) * ebl * (1 + layerFall * 2 + innerBoost * 0.5) * ps;
+      const rAmt = (f.ruffleAmt + audioData.bass * 25) * ebl * (1 + layerFall * 2 + innerBoost * 0.5) * ps * settings.rotationSpeed;
+      const glitchNoise = settings.glitchIntensity * p.sin(i * 13.7 + layer * 5.3) * 3.0;
       const dM = p.map(layer, 0, f.layers, 0.35, 1.0), bB = 0.4 + 0.6 * ebl;
       
       let r = p.constrain(p.lerp(f.c1[0], f.c2[0], lr) * dM * bB, 0, 255);
@@ -185,7 +187,7 @@ export const drawPeony3D = (
         gr = p.lerp(gr, gr * 0.28 + 22, wf); 
         b = p.lerp(b, b * 0.12 + 6, wf);
       }
-      items.push({ rz, tp: 'p', sx, sy, sa: viewAngle, pl, pw, rPhase, rAmt, r, gr, b });
+      items.push({ rz, tp: 'p', sx: sx + glitchNoise, sy: sy + glitchNoise * 0.5, sa: viewAngle, pl, pw, rPhase, rAmt, r, gr, b });
     }
   }
 
@@ -245,7 +247,8 @@ export const drawFlowerToBuffer = (
   rotX: number,
   rotY: number,
   rotZ: number,
-  audioData: AudioData
+  audioData: AudioData,
+  settings: SketchSettings
 ) => {
   g.background(0);
   g.noStroke();
@@ -256,6 +259,6 @@ export const drawFlowerToBuffer = (
   const flowerCY = BUF_H * 0.38 + wiltDroop;
   
   drawStem(p, g, f, stemProgress, wl, flowerCX, flowerCY);
-  drawPeony3D(p, g, f, flowerBloom, wl, flowerCX, flowerCY, rotX, rotY, rotZ, audioData);
+  drawPeony3D(p, g, f, flowerBloom, wl, flowerCX, flowerCY, rotX, rotY, rotZ, audioData, settings);
   g.loadPixels();
 };

@@ -4,7 +4,7 @@
  */
 
 import p5 from 'p5';
-import { RenderMode, AudioData } from '../types';
+import { RenderMode, AudioData, SketchSettings } from '../types';
 
 const BUF_W = 680, BUF_H = 680;
 
@@ -33,11 +33,12 @@ export const renderToScreen = (
   prevMode: RenderMode,
   modeT: number,
   chars: string[],
-  audio: AudioData
+  audio: AudioData,
+  settings: SketchSettings
 ) => {
 
   const px = (buf as any).pixels;
-  const g = p.max(4, p.round(grid));
+  const g = p.max(settings.gridDensity, p.round(grid));
   const asciiG = p.max(g, 6);
   const scaleF = p.min(p.width / BUF_W, p.height / BUF_H) * 0.85;
   const invScale = 1 / scaleF;
@@ -80,7 +81,12 @@ export const renderToScreen = (
 
       if ((r + gr + b) < 12) continue;
 
-      const bright = r * 0.299 + gr * 0.587 + b * 0.114;
+      // Bloom brightness modulation
+      const bloomMul = 0.7 + settings.bloomAmount * 0.3;
+      const bright = (r * 0.299 + gr * 0.587 + b * 0.114) * bloomMul;
+
+      // Glitch scanline distortion
+      const scanDistort = settings.glitchIntensity * p.sin(sy * 0.5 + sx * 0.3) * 2.0;
       const cx = sx + halfG;
       const cy = sy + halfG;
 
@@ -92,6 +98,7 @@ export const renderToScreen = (
         mode = hash < modeT ? renderMode : prevMode;
       }
 
+      const drawX = cx + scanDistort;
       if (mode === RenderMode.ASCII) {
         const fontSz = p.floor(asciiSize * (0.4 + bright * 0.004));
         const fontStr = fontSz + 'px Courier New';
@@ -101,15 +108,15 @@ export const renderToScreen = (
         }
         ctx.fillStyle = `rgb(${r},${gr},${b})`;
         const ci = ((bright >> 2) + ((sx * 7 + sy * 13) >> 3)) % chars.length;
-        ctx.fillText(chars[ci], cx, cy);
+        ctx.fillText(chars[ci], drawX, cy);
       } else if (mode === RenderMode.DOTS) {
         p.fill(r, gr, b);
         const d = gEff * (0.1 + bright * 0.0033);
-        p.ellipse(cx, cy, d, d);
+        p.ellipse(drawX, cy, d, d);
       } else {
         p.fill(r, gr, b);
         p.rectMode(p.CENTER);
-        p.rect(cx, cy, gEff * 0.93, gEff * 0.93);
+        p.rect(drawX, cy, gEff * 0.93, gEff * 0.93);
       }
     }
   }

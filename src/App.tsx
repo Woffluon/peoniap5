@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, ChangeEvent, lazy, Suspense } from 'react';
 const SketchCanvas = lazy(() => import('./components/SketchCanvas'));
 import { SketchCanvasHandle } from './components/SketchCanvas';
-import { RenderMode, AudioData } from './types';
+import { RenderMode, AudioData, SketchSettings } from './types';
 import Controls from './components/Controls';
 
 function App() {
@@ -178,6 +178,14 @@ function App() {
     setIsRecording(prev => !prev);
   }, []);
 
+  const handleGetSettings = useCallback((): SketchSettings => {
+    return canvasRef.current?.getSettings() ?? { glitchIntensity: 0, rotationSpeed: 1, gridDensity: 4, bloomAmount: 1 };
+  }, []);
+
+  const handleUpdateSketchSettings = useCallback((settings: Partial<SketchSettings>) => {
+    canvasRef.current?.updateSketchSettings(settings);
+  }, []);
+
   // Bridge: React isRecording state → p5 instance methods
   useEffect(() => {
     if (isRecording) {
@@ -251,6 +259,8 @@ function App() {
             isRecording={isRecording}
             onExportPNG={handleExportPNG}
             onToggleRecording={handleToggleRecording}
+            getSettings={handleGetSettings}
+            updateSketchSettings={handleUpdateSketchSettings}
           />
         </div>
 
@@ -276,6 +286,8 @@ function App() {
             isRecording={isRecording}
             onExportPNG={handleExportPNG}
             onToggleRecording={handleToggleRecording}
+            getSettings={handleGetSettings}
+            updateSketchSettings={handleUpdateSketchSettings}
           />
         </div>
 

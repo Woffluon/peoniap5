@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { RenderMode, AudioData } from '../types';
+import { RenderMode, AudioData, SketchSettings } from '../types';
 import { useSketch } from '../hooks/useSketch';
 
 export interface SketchCanvasHandle {
   exportCanvas: () => void;
   startRecording: () => void;
   stopRecording: () => void;
+  getSettings: () => SketchSettings;
+  updateSketchSettings: (settings: Partial<SketchSettings>) => void;
 }
 
 interface SketchCanvasProps {
@@ -38,7 +40,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, SketchCanvasProps>(({
     setIsP5Ready(true);
   }, []);
 
-  const { startExperience, updateCustomImage, setEffectMode, setAudioDataGetter, exportCanvas, startRecording, stopRecording } = useSketch(
+  const { startExperience, updateCustomImage, setEffectMode, setAudioDataGetter, exportCanvas, startRecording, stopRecording, getSettings, updateSketchSettings } = useSketch(
     containerRef,
     handleLoadingProgress,
     handleReady
@@ -48,7 +50,9 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, SketchCanvasProps>(({
     exportCanvas,
     startRecording,
     stopRecording,
-  }), [exportCanvas, startRecording, stopRecording]);
+    getSettings,
+    updateSketchSettings,
+  }), [exportCanvas, startRecording, stopRecording, getSettings, updateSketchSettings]);
 
   useEffect(() => {
     setAudioDataGetter(getAudioData);

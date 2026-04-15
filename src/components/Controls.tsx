@@ -1,5 +1,5 @@
-import React from 'react';
-import { RenderMode } from '../types';
+import React, { useState, useEffect } from 'react';
+import { RenderMode, SketchSettings, DEFAULT_SKETCH_SETTINGS } from '../types';
 
 interface ControlsProps {
   effectMode: RenderMode;
@@ -14,6 +14,8 @@ interface ControlsProps {
   isRecording: boolean;
   onExportPNG: () => void;
   onToggleRecording: () => void;
+  getSettings: () => SketchSettings;
+  updateSketchSettings: (settings: Partial<SketchSettings>) => void;
 }
 
 const Controls: React.FC<ControlsProps> = ({
@@ -28,9 +30,32 @@ const Controls: React.FC<ControlsProps> = ({
   onAudioUpload,
   isRecording,
   onExportPNG,
-  onToggleRecording
+  onToggleRecording,
+  getSettings,
+  updateSketchSettings,
 }) => {
   const modes = ['ascii', 'dots', 'pixel', 'all'] as const;
+
+  const [advOpen, setAdvOpen] = useState(false);
+  const [glitchIntensity, setGlitchIntensity] = useState(DEFAULT_SKETCH_SETTINGS.glitchIntensity);
+  const [rotationSpeed, setRotationSpeed] = useState(DEFAULT_SKETCH_SETTINGS.rotationSpeed);
+  const [gridDensity, setGridDensity] = useState(DEFAULT_SKETCH_SETTINGS.gridDensity);
+  const [bloomAmount, setBloomAmount] = useState(DEFAULT_SKETCH_SETTINGS.bloomAmount);
+
+  useEffect(() => {
+    const s = getSettings();
+    if (s) {
+      setGlitchIntensity(s.glitchIntensity);
+      setRotationSpeed(s.rotationSpeed);
+      setGridDensity(s.gridDensity);
+      setBloomAmount(s.bloomAmount);
+    }
+  }, [getSettings]);
+
+  const handleSlider = (key: keyof SketchSettings, value: number, setter: (v: number) => void) => {
+    setter(value);
+    updateSketchSettings({ [key]: value });
+  };
 
   return (
     <>
@@ -107,6 +132,82 @@ const Controls: React.FC<ControlsProps> = ({
             'Record MP4'
           )}
         </button>
+      </div>
+
+      <div className="mode-group">
+        <button
+          className="text-btn"
+          onClick={() => setAdvOpen(!advOpen)}
+          aria-label={advOpen ? 'Close Advanced' : 'Open Advanced'}
+        >
+          Advanced {advOpen ? '▾' : '▸'}
+        </button>
+      </div>
+
+      <div className={`advanced-drawer ${advOpen ? 'open' : ''}`}>
+        <div className="adv-slider-group">
+          <label className="adv-label">
+            Glitch Intensity
+            <span className="adv-value">{glitchIntensity.toFixed(2)}</span>
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={glitchIntensity}
+            onChange={(e) => handleSlider('glitchIntensity', parseFloat(e.target.value), setGlitchIntensity)}
+            className="adv-slider"
+          />
+        </div>
+
+        <div className="adv-slider-group">
+          <label className="adv-label">
+            Rotation Speed
+            <span className="adv-value">{rotationSpeed.toFixed(2)}</span>
+          </label>
+          <input
+            type="range"
+            min="0.1"
+            max="2"
+            step="0.01"
+            value={rotationSpeed}
+            onChange={(e) => handleSlider('rotationSpeed', parseFloat(e.target.value), setRotationSpeed)}
+            className="adv-slider"
+          />
+        </div>
+
+        <div className="adv-slider-group">
+          <label className="adv-label">
+            Grid Density
+            <span className="adv-value">{Math.round(gridDensity)}</span>
+          </label>
+          <input
+            type="range"
+            min="4"
+            max="20"
+            step="1"
+            value={gridDensity}
+            onChange={(e) => handleSlider('gridDensity', parseInt(e.target.value, 10), setGridDensity)}
+            className="adv-slider"
+          />
+        </div>
+
+        <div className="adv-slider-group">
+          <label className="adv-label">
+            Bloom Amount
+            <span className="adv-value">{bloomAmount.toFixed(2)}</span>
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={bloomAmount}
+            onChange={(e) => handleSlider('bloomAmount', parseFloat(e.target.value), setBloomAmount)}
+            className="adv-slider"
+          />
+        </div>
       </div>
     </>
   );
