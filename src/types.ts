@@ -37,6 +37,9 @@ export interface ExtendedP5 extends p5 {
   setEffectMode: (mode: RenderMode) => void;
   startExperience: () => void;
   setAudioDataGetter: (getter: () => AudioData | null) => void;
+  exportCanvas: () => void;
+  startRecording: () => void;
+  stopRecording: () => void;
 }
 
 /**

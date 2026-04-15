@@ -1,6 +1,12 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { RenderMode, AudioData } from '../types';
 import { useSketch } from '../hooks/useSketch';
+
+export interface SketchCanvasHandle {
+  exportCanvas: () => void;
+  startRecording: () => void;
+  stopRecording: () => void;
+}
 
 interface SketchCanvasProps {
   imageSrc: string | null;
@@ -10,13 +16,13 @@ interface SketchCanvasProps {
   getAudioData: () => AudioData | null;
 }
 
-const SketchCanvas: React.FC<SketchCanvasProps> = ({ 
+const SketchCanvas = forwardRef<SketchCanvasHandle, SketchCanvasProps>(({ 
   imageSrc, 
   effectMode, 
   onReady, 
   hasStarted,
   getAudioData
-}) => {
+}, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
   const [isP5Ready, setIsP5Ready] = useState(false);
@@ -32,11 +38,17 @@ const SketchCanvas: React.FC<SketchCanvasProps> = ({
     setIsP5Ready(true);
   }, []);
 
-  const { startExperience, updateCustomImage, setEffectMode, setAudioDataGetter } = useSketch(
+  const { startExperience, updateCustomImage, setEffectMode, setAudioDataGetter, exportCanvas, startRecording, stopRecording } = useSketch(
     containerRef,
     handleLoadingProgress,
     handleReady
   );
+
+  useImperativeHandle(ref, () => ({
+    exportCanvas,
+    startRecording,
+    stopRecording,
+  }), [exportCanvas, startRecording, stopRecording]);
 
   useEffect(() => {
     setAudioDataGetter(getAudioData);
@@ -82,6 +94,6 @@ const SketchCanvas: React.FC<SketchCanvasProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default SketchCanvas;

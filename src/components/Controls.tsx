@@ -11,6 +11,9 @@ interface ControlsProps {
   isAudioReactive: boolean;
   toggleAudioReactivity: () => void;
   onAudioUpload: () => void;
+  isRecording: boolean;
+  onExportPNG: () => void;
+  onToggleRecording: () => void;
 }
 
 const Controls: React.FC<ControlsProps> = ({
@@ -22,7 +25,10 @@ const Controls: React.FC<ControlsProps> = ({
   onCloseMenu,
   isAudioReactive,
   toggleAudioReactivity,
-  onAudioUpload
+  onAudioUpload,
+  isRecording,
+  onExportPNG,
+  onToggleRecording
 }) => {
   const modes = ['ascii', 'dots', 'pixel', 'all'] as const;
 
@@ -73,6 +79,33 @@ const Controls: React.FC<ControlsProps> = ({
           aria-label="Toggle Audio Reactivity"
         >
           Reactivity: {isAudioReactive ? 'ON' : 'OFF'}
+        </button>
+      </div>
+
+      <div className="mode-group">
+        <div className="label-small">Export</div>
+        <button
+          className="text-btn"
+          onClick={onExportPNG}
+          aria-label="Export PNG"
+          style={{ pointerEvents: 'auto' }}
+        >
+          Export PNG
+        </button>
+        <button
+          className={`text-btn ${isRecording ? 'recording' : ''}`}
+          onClick={onToggleRecording}
+          aria-label={isRecording ? 'Stop Recording' : 'Record MP4'}
+          style={{ pointerEvents: 'auto' }}
+        >
+          {isRecording ? (
+            <>
+              <span className="recording-dot" />
+              Recording...
+            </>
+          ) : (
+            'Record MP4'
+          )}
         </button>
       </div>
     </>

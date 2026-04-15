@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, ChangeEvent, lazy, Suspense } from 'react';
+import { useState, useRef, useEffect, useCallback, ChangeEvent, lazy, Suspense } from 'react';
 const SketchCanvas = lazy(() => import('./components/SketchCanvas'));
+import { SketchCanvasHandle } from './components/SketchCanvas';
 import { RenderMode, AudioData } from './types';
 import Controls from './components/Controls';
 
@@ -13,10 +14,14 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioFileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const canvasRef = useRef<SketchCanvasHandle>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasStartedRecordingRef = useRef(false);
 
   // Web Audio API refs (Strict Mode safe)
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -165,10 +170,42 @@ function App() {
     setIsMuted(true);
   };
 
+  const handleExportPNG = useCallback(() => {
+    canvasRef.current?.exportCanvas();
+  }, []);
+
+  const handleToggleRecording = useCallback(() => {
+    setIsRecording(prev => !prev);
+  }, []);
+
+  // Bridge: React isRecording state → p5 instance methods
+  useEffect(() => {
+    if (isRecording) {
+      canvasRef.current?.startRecording();
+      hasStartedRecordingRef.current = true;
+      recordingTimerRef.current = setTimeout(() => setIsRecording(false), 10_000);
+    } else if (hasStartedRecordingRef.current) {
+      canvasRef.current?.stopRecording();
+      hasStartedRecordingRef.current = false;
+      if (recordingTimerRef.current) {
+        clearTimeout(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+    }
+  }, [isRecording]);
+
+  // Cleanup recording timer on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearTimeout(recordingTimerRef.current);
+    };
+  }, []);
+
   return (
     <div className="app-container">
       <Suspense fallback={<div className="canvas-placeholder"></div>}>
         <SketchCanvas 
+          ref={canvasRef}
           imageSrc={imageSrc} 
           effectMode={effectMode}
           onReady={(ready) => setIsReady(ready)}
@@ -211,6 +248,9 @@ function App() {
             isAudioReactive={isAudioReactive}
             toggleAudioReactivity={toggleAudioReactivity}
             onAudioUpload={handleAudioUploadClick}
+            isRecording={isRecording}
+            onExportPNG={handleExportPNG}
+            onToggleRecording={handleToggleRecording}
           />
         </div>
 
@@ -233,6 +273,9 @@ function App() {
             isAudioReactive={isAudioReactive}
             toggleAudioReactivity={toggleAudioReactivity}
             onAudioUpload={handleAudioUploadClick}
+            isRecording={isRecording}
+            onExportPNG={handleExportPNG}
+            onToggleRecording={handleToggleRecording}
           />
         </div>
 

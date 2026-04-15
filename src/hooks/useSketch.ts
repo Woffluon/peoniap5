@@ -78,6 +78,12 @@ export const useSketch = (
 
       let wilt = 0;
 
+      // Recording state
+      let mediaRecorder: MediaRecorder | null = null;
+      let recordedChunks: Blob[] = [];
+      let recordingMimeType = '';
+      let captureStream: MediaStream | null = null;
+
       p.setup = () => {
         p.createCanvas(p.windowWidth, p.windowHeight);
         p.pixelDensity(p.displayDensity() || 1);
@@ -129,6 +135,56 @@ export const useSketch = (
       };
 
       ep.startExperience = () => { loadingPhase = false; };
+
+      ep.exportCanvas = () => {
+        p.saveCanvas('peonia-art', 'png');
+      };
+
+      ep.startRecording = () => {
+        if (mediaRecorder && mediaRecorder.state === 'recording') return;
+
+        recordingMimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+          ? 'video/webm;codecs=vp9'
+          : 'video/webm';
+
+        const canvasEl = (p.drawingContext as CanvasRenderingContext2D).canvas;
+        captureStream = canvasEl.captureStream(30);
+        recordedChunks = [];
+
+        mediaRecorder = new MediaRecorder(captureStream, {
+          mimeType: recordingMimeType,
+          videoBitsPerSecond: 5_000_000,
+        });
+
+        mediaRecorder.ondataavailable = (e: BlobEvent) => {
+          if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        mediaRecorder.start(100); // collect chunks every 100ms
+      };
+
+      ep.stopRecording = () => {
+        if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: recordingMimeType });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'peonia-art.webm';
+          a.click();
+          URL.revokeObjectURL(url);
+          recordedChunks = [];
+        };
+
+        mediaRecorder.stop();
+
+        if (captureStream) {
+          captureStream.getTracks().forEach(t => t.stop());
+          captureStream = null;
+        }
+        mediaRecorder = null;
+      };
 
       p.draw = () => {
         const dt = p.deltaTime / 1000;
@@ -272,7 +328,11 @@ export const useSketch = (
 
     const p5Instance = new p5(sketch, containerRef.current) as ExtendedP5;
     p5InstanceRef.current = p5Instance;
-    return () => p5Instance.remove();
+    return () => {
+      // Stop recording if active before removing p5 instance
+      if (p5Instance.stopRecording) p5Instance.stopRecording();
+      p5Instance.remove();
+    };
   }, [containerRef, onLoadingProgress, onReady]);
 
   useEffect(() => initSketch(), [initSketch]);
@@ -282,5 +342,8 @@ export const useSketch = (
     updateCustomImage: useCallback((url: string | null) => p5InstanceRef.current?.updateCustomImage(url), []),
     setEffectMode: useCallback((mode: RenderMode) => p5InstanceRef.current?.setEffectMode(mode), []),
     setAudioDataGetter: useCallback((getter: () => AudioData | null) => p5InstanceRef.current?.setAudioDataGetter(getter), []),
+    exportCanvas: useCallback(() => p5InstanceRef.current?.exportCanvas(), []),
+    startRecording: useCallback(() => p5InstanceRef.current?.startRecording(), []),
+    stopRecording: useCallback(() => p5InstanceRef.current?.stopRecording(), []),
   };
 };
