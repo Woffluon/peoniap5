@@ -16,6 +16,8 @@ interface ControlsProps {
   onToggleRecording: () => void;
   getSettings: () => SketchSettings;
   updateSketchSettings: (settings: Partial<SketchSettings>) => void;
+   isWebcamActive: boolean;
+   onToggleWebcam: () => void;
 }
 
 const Controls: React.FC<ControlsProps> = ({
@@ -33,6 +35,8 @@ const Controls: React.FC<ControlsProps> = ({
   onToggleRecording,
   getSettings,
   updateSketchSettings,
+  isWebcamActive,
+  onToggleWebcam,
 }) => {
   const modes = ['ascii', 'dots', 'pixel', 'all'] as const;
 
@@ -90,6 +94,13 @@ const Controls: React.FC<ControlsProps> = ({
           aria-label="Upload Music"
         >
           Music
+        </button>
+        <button
+          className={`text-btn ${isWebcamActive ? 'active' : ''}`}
+          onClick={onToggleWebcam}
+          aria-label={isWebcamActive ? 'Turn Webcam Off' : 'Turn Webcam On'}
+        >
+          Webcam: {isWebcamActive ? 'ON' : 'OFF'}
         </button>
         <button 
           className="text-btn" 

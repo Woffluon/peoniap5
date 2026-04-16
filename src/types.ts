@@ -59,6 +59,7 @@ export interface ExtendedP5 extends p5 {
   stopRecording: () => void;
   getSettings: () => SketchSettings;
   updateSketchSettings: (settings: Partial<SketchSettings>) => void;
+  setWebcamState: (isActive: boolean) => void;
 }
 
 /**

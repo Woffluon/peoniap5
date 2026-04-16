@@ -86,6 +86,10 @@ export const useSketch = (
       let recordingMimeType = '';
       let captureStream: MediaStream | null = null;
 
+      // Webcam state
+      let webcam: p5.MediaElement | null = null;
+      let activeStream: MediaStream | null = null;
+
       p.setup = () => {
         p.createCanvas(p.windowWidth, p.windowHeight);
         p.pixelDensity(p.displayDensity() || 1);
@@ -137,6 +141,37 @@ export const useSketch = (
       };
 
       ep.startExperience = () => { loadingPhase = false; };
+
+      ep.setWebcamState = (isActive: boolean) => {
+        if (isActive) {
+          if (webcam) return;
+
+          const nextWebcam = p.createCapture('video', (stream: MediaStream) => {
+            activeStream = stream;
+            if (!webcam) {
+              stream.getTracks().forEach(track => track.stop());
+            }
+          }) as p5.MediaElement;
+
+          webcam = nextWebcam;
+          nextWebcam.hide();
+        } else {
+          if (activeStream) {
+            activeStream.getTracks().forEach(track => track.stop());
+            activeStream = null;
+          }
+
+          const videoElt = webcam?.elt as HTMLVideoElement | undefined;
+          const fallbackStream = (videoElt?.srcObject as MediaStream | null | undefined) ?? null;
+          if (fallbackStream) {
+            fallbackStream.getTracks().forEach(track => track.stop());
+          }
+
+          webcam?.remove();
+          webcam = null;
+          activeStream = null;
+        }
+      };
 
       ep.exportCanvas = () => {
         p.saveCanvas('peonia-art', 'png');
@@ -271,10 +306,30 @@ export const useSketch = (
 
         updateGlitch(dt);
 
-        if (customImg && customImg.width > 0) {
-          const s = p.max(680 / customImg.width, 680 / customImg.height);
+        const hasWebcamFrame = webcam && webcam.width > 0 && webcam.height > 0;
+
+        if (hasWebcamFrame && webcam) {
+          const camW = webcam.width;
+          const camH = webcam.height;
+          const s = p.max(BUF_W / camW, BUF_H / camH);
+
           buf.background(0);
-          buf.image(customImg, (680 - customImg.width * s) / 2, (680 - customImg.height * s) / 2, customImg.width * s, customImg.height * s);
+          buf.push();
+          buf.translate(BUF_W, 0);
+          buf.scale(-1, 1);
+          buf.image(
+            webcam,
+            (BUF_W - camW * s) / 2,
+            (BUF_H - camH * s) / 2,
+            camW * s,
+            camH * s
+          );
+          buf.pop();
+          buf.loadPixels();
+        } else if (customImg && customImg.width > 0) {
+          const s = p.max(BUF_W / customImg.width, BUF_H / customImg.height);
+          buf.background(0);
+          buf.image(customImg, (BUF_W - customImg.width * s) / 2, (BUF_H - customImg.height * s) / 2, customImg.width * s, customImg.height * s);
           buf.loadPixels();
         } else {
           drawFlowerToBuffer(p, buf, f, bloom, wilt, rotX, rotY, rotZ, audio, targetSettings);
@@ -342,11 +397,16 @@ export const useSketch = (
     return () => {
       // Stop recording if active before removing p5 instance
       if (p5Instance.stopRecording) p5Instance.stopRecording();
+      if (p5Instance.setWebcamState) {
+        p5Instance.setWebcamState(false);
+      }
       p5Instance.remove();
     };
   }, [containerRef, onLoadingProgress, onReady]);
 
-  useEffect(() => initSketch(), [initSketch]);
+  useEffect(() => {
+    return initSketch();
+  }, [initSketch]);
 
   return {
     startExperience: useCallback(() => p5InstanceRef.current?.startExperience(), []),
@@ -358,5 +418,6 @@ export const useSketch = (
     stopRecording: useCallback(() => p5InstanceRef.current?.stopRecording(), []),
     getSettings: useCallback(() => p5InstanceRef.current?.getSettings() ?? { ...DEFAULT_SKETCH_SETTINGS }, []),
     updateSketchSettings: useCallback((settings: Partial<SketchSettings>) => p5InstanceRef.current?.updateSketchSettings(settings), []),
+    setWebcamState: useCallback((isActive: boolean) => p5InstanceRef.current?.setWebcamState(isActive), []),
   };
 };

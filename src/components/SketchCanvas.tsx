@@ -8,6 +8,7 @@ export interface SketchCanvasHandle {
   stopRecording: () => void;
   getSettings: () => SketchSettings;
   updateSketchSettings: (settings: Partial<SketchSettings>) => void;
+  setWebcamState: (isActive: boolean) => void;
 }
 
 interface SketchCanvasProps {
@@ -40,7 +41,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, SketchCanvasProps>(({
     setIsP5Ready(true);
   }, []);
 
-  const { startExperience, updateCustomImage, setEffectMode, setAudioDataGetter, exportCanvas, startRecording, stopRecording, getSettings, updateSketchSettings } = useSketch(
+  const { startExperience, updateCustomImage, setEffectMode, setAudioDataGetter, exportCanvas, startRecording, stopRecording, getSettings, updateSketchSettings, setWebcamState } = useSketch(
     containerRef,
     handleLoadingProgress,
     handleReady
@@ -52,7 +53,8 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, SketchCanvasProps>(({
     stopRecording,
     getSettings,
     updateSketchSettings,
-  }), [exportCanvas, startRecording, stopRecording, getSettings, updateSketchSettings]);
+    setWebcamState,
+  }), [exportCanvas, startRecording, stopRecording, getSettings, updateSketchSettings, setWebcamState]);
 
   useEffect(() => {
     setAudioDataGetter(getAudioData);

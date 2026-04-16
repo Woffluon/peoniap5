@@ -15,6 +15,7 @@ function App() {
   const [audioError, setAudioError] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [isWebcamActive, setIsWebcamActive] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioFileInputRef = useRef<HTMLInputElement>(null);
@@ -186,6 +187,11 @@ function App() {
     canvasRef.current?.updateSketchSettings(settings);
   }, []);
 
+  // Bridge: React webcam state → p5 instance webcam control
+  useEffect(() => {
+    canvasRef.current?.setWebcamState(isWebcamActive);
+  }, [isWebcamActive]);
+
   // Bridge: React isRecording state → p5 instance methods
   useEffect(() => {
     if (isRecording) {
@@ -261,6 +267,8 @@ function App() {
             onToggleRecording={handleToggleRecording}
             getSettings={handleGetSettings}
             updateSketchSettings={handleUpdateSketchSettings}
+            isWebcamActive={isWebcamActive}
+            onToggleWebcam={() => setIsWebcamActive(prev => !prev)}
           />
         </div>
 
@@ -288,6 +296,8 @@ function App() {
             onToggleRecording={handleToggleRecording}
             getSettings={handleGetSettings}
             updateSketchSettings={handleUpdateSketchSettings}
+            isWebcamActive={isWebcamActive}
+            onToggleWebcam={() => setIsWebcamActive(prev => !prev)}
           />
         </div>
 
